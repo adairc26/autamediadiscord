@@ -5,64 +5,113 @@ import os
 
 app = Flask(__name__)
 
-DISCORD_WEBHOOK_URL = os.environ.get(
-    'DISCORD_WEBHOOK_URL',
-    'https://discord.com/api/webhooks/1464849408100274358/zoJIBWaFhTdEPUx2SnjoAEyf-no6kXlAYjmI44jwsNQcfZLIDzzQ2_qEpNHLpom2DOf9'
-)
+WEBHOOKS = {
+    "inquiry": os.environ.get(
+        "DISCORD_WEBHOOK_INQUIRY",
+        "https://discord.com/api/webhooks/1480370483366072382/rq9qhNH36Uep-rtPs_ZrDCDv_7xY_bUmDN1a-fG6hB8PPZOtbXHt3nsvKhD5NtO3ka6q"
+    ),
+    "notify": os.environ.get(
+        "DISCORD_WEBHOOK_NOTIFY",
+        "https://discord.com/api/webhooks/1480370399446569020/YkdY6T7nW1doJnvIbnH8njUBSeduTvAE1wyTp-dcAVgyzNXHt_5ce8qjinNX6Xs0Sh_l"
+    ),
+}
+
 
 @app.after_request
 def add_cors(response):
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
 
-@app.route('/')
-def home():
-    return jsonify({"status": "Ripple Strategies — Notification Service Active"})
 
-@app.route('/contact', methods=['POST', 'OPTIONS'])
+@app.route("/")
+def home():
+    return jsonify({"status": "Autamedia — Notification Service Active"})
+
+
+@app.route("/contact", methods=["POST", "OPTIONS"])
 def contact():
-    if request.method == 'OPTIONS':
-        return make_response('', 204)
+    """Project inquiries — name, email, message → inquiry channel"""
+    if request.method == "OPTIONS":
+        return make_response("", 204)
 
     try:
-        data = request.json
-        if not data:
-            return jsonify({"success": False, "message": "No data received"}), 400
-
-        name    = data.get('name', 'Unknown')
-        email   = data.get('email', 'Not provided')
-        message = data.get('message', 'No message')
+        data = request.json or {}
+        name = data.get("name", "Unknown")
+        email = data.get("email", "Not provided")
+        message = data.get("message", "No message")
 
         embed = {
-            "title": "📬 New Contact Form Submission",
-            "color": 1752220,
+            "title": "📬 New Project Inquiry",
+            "color": 0xB8976A,
             "fields": [
-                {"name": "👤 Name",    "value": name,    "inline": True},
-                {"name": "📧 Email",   "value": email,   "inline": True},
+                {"name": "👤 Name", "value": name, "inline": True},
+                {"name": "📧 Email", "value": email, "inline": True},
                 {"name": "💬 Message", "value": message, "inline": False},
             ],
-            "footer": {"text": "Ripple Strategies — Website Contact Form"},
-            "timestamp": datetime.utcnow().isoformat()
+            "footer": {"text": "Autamedia — Contact Form"},
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
-        discord_payload = {
-            "content": "🔔 **New message from the Ripple Strategies website!**",
-            "embeds": [embed]
-        }
+        resp = requests.post(
+            WEBHOOKS["inquiry"],
+            json={
+                "content": "🔔 **New inquiry from the Autamedia website!**",
+                "embeds": [embed],
+            },
+            timeout=5,
+        )
 
-        response = requests.post(DISCORD_WEBHOOK_URL, json=discord_payload, timeout=5)
-
-        if response.status_code == 204:
+        if resp.status_code == 204:
             return jsonify({"success": True})
-        else:
-            return jsonify({"success": False, "message": "Discord error"}), 500
+        return jsonify({"success": False, "message": "Discord error"}), 500
 
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Contact error: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+
+@app.route("/notify", methods=["POST", "OPTIONS"])
+def notify():
+    """Giveaway / presets notify — just email → notify channel"""
+    if request.method == "OPTIONS":
+        return make_response("", 204)
+
+    try:
+        data = request.json or {}
+        email = data.get("email", "Not provided")
+        source = data.get("source", "Unknown")
+
+        embed = {
+            "title": "🔔 New Email Signup",
+            "color": 0x7EAFC4,
+            "fields": [
+                {"name": "📧 Email", "value": email, "inline": True},
+                {"name": "📍 Source", "value": source, "inline": True},
+            ],
+            "footer": {"text": "Autamedia — Notify Signup"},
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        resp = requests.post(
+            WEBHOOKS["notify"],
+            json={
+                "content": "📩 **Someone wants to stay updated!**",
+                "embeds": [embed],
+            },
+            timeout=5,
+        )
+
+        if resp.status_code == 204:
+            return jsonify({"success": True})
+        return jsonify({"success": False, "message": "Discord error"}), 500
+
+    except Exception as e:
+        print(f"Notify error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
