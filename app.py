@@ -98,5 +98,9 @@ def notify():
 
 
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    # Enable threaded=True so requests don't block the main loop
+    app.run(host="0.0.0.0", port=port, threaded=True)
